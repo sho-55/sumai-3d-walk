@@ -1,30 +1,34 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>わが家の室内ウォーク</title><style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}*{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>わが家の室内ウォーク</title><style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}*{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>わが家の室内ウォーク</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
 <style>
 :root{
   --ink:#22302b; --muted:#5f6f68; --panel:rgba(248,251,249,.92); --line:rgba(34,48,43,.16);
   --accent:#3b6b5b; --accent-ink:#ffffff; --ground:#dfe6e3; --measure:#c8303a; --chip:rgba(59,107,91,.12);
-  --shadow:0 6px 22px rgba(20,32,27,.18);
+  --shadow:0 6px 22px rgba(20,32,27,.18); --sheet:#f6f9f7;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     color-scheme:dark;
     --ink:#e6eeea; --muted:#a2b2ab; --panel:rgba(24,31,28,.88); --line:rgba(230,238,234,.18);
     --accent:#9ccab8; --accent-ink:#11201a; --ground:#141a18; --measure:#ff7a80; --chip:rgba(156,202,184,.16);
-    --shadow:0 6px 22px rgba(0,0,0,.45);
+    --shadow:0 6px 22px rgba(0,0,0,.45); --sheet:#1a211e;
   }
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
   --ink:#e6eeea; --muted:#a2b2ab; --panel:rgba(24,31,28,.88); --line:rgba(230,238,234,.18);
   --accent:#9ccab8; --accent-ink:#11201a; --ground:#141a18; --measure:#ff7a80; --chip:rgba(156,202,184,.16);
-  --shadow:0 6px 22px rgba(0,0,0,.45);
+  --shadow:0 6px 22px rgba(0,0,0,.45); --sheet:#1a211e;
 }
 html,body{height:100%}
+/* スマホで画面全体が拡大されたまま戻らなくなるのを防ぐ：ページの拡大（2本指・2回たたく）を止め、文字の自動拡大もしない */
+html,body{touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--ground);color:var(--ink);overflow:hidden;
   font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;font-weight:500;font-size:14px;line-height:1.6}
 #app{position:relative;width:100%;height:100%;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app *{touch-action:none}
+#sheet,#sheet *,#help,#help *{touch-action:pan-y}      /* 一覧と説明は縦にだけ動かせる */
 #view{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;transition:opacity .16s}
 #view.fade{opacity:.25}
 .panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
@@ -36,9 +40,9 @@ button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);bor
 #titleBar{top:12px;left:16px;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;max-width:calc(100% - 200px)}
 #titleBar strong{font-weight:700;font-size:15px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #stateChip{font-size:12px;color:var(--accent);background:var(--chip);border-radius:20px;padding:2px 10px;white-space:nowrap}
-#help{top:64px;left:16px;width:min(340px,calc(100% - 32px));padding:14px 16px;font-size:13px}
+#help{top:64px;left:16px;width:min(340px,calc(100% - 32px));padding:14px 16px;font-size:13px;max-height:calc(100% - 84px);overflow:auto;z-index:5}
 #help h2{font-size:13px;margin:0 0 4px;font-weight:700}
-#help h2 + p{margin:0 0 10px;color:var(--muted)}
+#help p{margin:0 0 10px;color:var(--muted)}
 #help p:last-child{margin-bottom:0}
 #mapPanel{top:12px;right:16px;padding:8px 8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px}
 #map{display:block;border-radius:8px;cursor:pointer;touch-action:none}
@@ -70,16 +74,24 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
 .selName{font-size:13px;color:var(--muted)}
 .selName.on{color:var(--ink);font-weight:700}
 #editor button:disabled{opacity:.38;cursor:default}
-@media (max-width:640px){#edSel .selName{flex-basis:100%}}
+.brk{flex-basis:100%;height:0}
+#nudge button{min-width:40px;padding-left:0;padding-right:0;font-weight:700}
+#zoomBox{position:absolute;left:8px;top:8px;display:flex;gap:6px}      /* 図の左上は建物の外で、何も描かれない場所 */
+#zoomBox button{width:44px;height:44px;min-height:0;padding:0;background:var(--sheet);font-size:20px;font-weight:700;line-height:1;box-shadow:0 2px 8px rgba(20,32,27,.14)}
+#zoomBox #zoomFit{font-size:12px}
+#moreBtn{display:none}
+#unzoom{position:fixed;left:0;top:0;z-index:60;transform-origin:0 0;display:flex;align-items:center;gap:8px;background:var(--measure);color:#fff;
+  border-radius:12px;padding:6px 6px 6px 12px;font-size:13px;font-weight:700;box-shadow:var(--shadow);white-space:nowrap}
+#unzoom button{background:#fff;color:#22302b;border:0;font-weight:700;min-height:40px}
 #stored .chip{font-size:12px;padding:5px 10px;border-radius:20px}
-#sheet{position:absolute;left:0;right:0;bottom:0;max-height:78%;overflow:auto;background:var(--panel);border-top:1px solid var(--line);
-  border-radius:16px 16px 0 0;box-shadow:var(--shadow);padding:14px 16px 18px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);z-index:2}
+#sheet{position:absolute;left:0;right:0;bottom:0;max-height:82%;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--sheet);border-top:1px solid var(--line);
+  border-radius:16px 16px 0 0;box-shadow:var(--shadow);padding:14px 16px 22px;z-index:2}
 .sheetHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .sheetHead strong{font-size:15px}
 #sheet h3{font-size:12px;color:var(--muted);letter-spacing:.08em;margin:16px 0 6px;font-weight:700}
 .saveRow label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
 .saveRow div{display:flex;gap:8px}
-.saveRow input{flex:1;min-width:0;font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:9px;padding:8px 10px;
+.saveRow input{flex:1;min-width:0;font:inherit;font-size:16px;color:inherit;background:transparent;border:1px solid var(--line);border-radius:9px;padding:8px 10px;
   -webkit-user-select:text;user-select:text}
 .saveRow input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #saveNote{font-size:12px;color:var(--muted);margin:6px 0 0;min-height:1.2em}
@@ -88,14 +100,40 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
 .item .nm{font-weight:700;font-size:14px}
 .item .ds{font-size:12px;color:var(--muted);line-height:1.5}
 .empty{font-size:12px;color:var(--muted);padding:6px 0}
+@media (pointer:coarse){
+  button{min-height:44px;padding:8px 13px}                 /* 指で押す端末：押す場所を44px以上に */
+  #stored .chip{min-height:40px}
+  #nudge button{min-width:44px}
+}
 @media (max-width:640px){
-  #titleBar{max-width:calc(100% - 174px);padding:6px 8px 6px 10px;gap:6px}
+  #titleBar{top:8px;left:8px;max-width:calc(100% - 158px);padding:5px 6px 5px 10px;gap:6px}
   #titleBar strong{font-size:13px}
   #stateChip{display:none}
-  #bar{gap:6px 8px;padding:8px}
-  button{padding:7px 9px;font-size:13px}
-  #status{top:60px;left:16px;transform:none;max-width:calc(100% - 180px);white-space:normal;padding:7px 12px}
+  #mapPanel{top:8px;right:8px}
+  #help{top:66px;left:8px;width:calc(100% - 16px)}
+  button{padding:8px 10px;font-size:14px}
+  #status{top:66px;left:8px;transform:none;max-width:calc(100% - 158px);white-space:normal;padding:7px 12px}
   #mapPanel .more{display:none}
+  /* 下の操作バー：1段目＝行き先、2段目＝配置を変える・引き戸・その他。目線・家具・寸法は「その他」の中 */
+  #bar{left:8px;right:8px;bottom:8px;transform:none;width:auto;max-width:none;flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:6px;padding:8px}
+  #bar .grp{gap:6px}
+  #bar .grp.go{order:1} #bar .grp.main{order:2} #bar .grp.extra{order:3}
+  #bar .grp.go .lbl{display:none}
+  #bar .grp button{flex:1 1 0;min-width:0;padding-left:4px;padding-right:4px}
+  #bar .grp.extra{display:none}
+  #bar.open .grp.extra,#bar .grp.extra:has(button#measureBtn[aria-pressed="true"]){display:flex}
+  #bar .grp.extra .lbl{flex:0 0 40px}
+  #moreBtn{display:inline-block;flex:0 1 84px !important}
+  #stick{left:14px}
+  /* 配置を変える画面 */
+  #editor{padding:8px 8px 10px;gap:6px}
+  .edRow{gap:6px}
+  #edCtl .selName{flex-basis:100%;min-height:20px}
+  #selBtns{flex-wrap:wrap;flex:1 1 100%}
+  #selBtns button{flex:1 1 auto}
+  #nudge .lbl{display:none}
+  .brk{display:none}
+  #resetBtn,#listBtn{flex:1 1 0}
 }
 @media (prefers-reduced-motion: reduce){#view{transition:none}}
 </style>
@@ -116,6 +154,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     <p>左下の丸いスティックで歩く。画面をなぞって見回す。床をタップするとそこへ歩く。</p>
     <h2>配置を変える</h2>
     <p>「配置を変える」で上から見た図が開く。家具を押して選び、引きずって動かす。食卓や机を動かすと椅子もついてくる。重なった家具は赤くなる。動かしたあとは、家具の影が簡単な影に替わる。</p>
+    <p>図は、2本の指でつまむか「＋」「－」で拡大できる（パソコンはマウスのホイール）。拡大中は、何もないところを引きずると図が動く。矢印のボタンは、選んだ家具を5cmずつ動かす。</p>
     <h2>仕切りと引き戸</h2>
     <p>仕切りを「あり」にすると、旧和室とLDKの間に壁と引き戸が建つ。引き戸は「引き戸を開ける」か、戸を直接押すと開け閉めできる。閉めている間は通れない。</p>
     <h2>そのほか</h2>
@@ -132,27 +171,30 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   <div id="stick" hidden aria-label="歩くスティック"><div id="knob"></div></div>
 
   <div class="panel" id="bar">
-    <div class="grp" role="group" aria-label="行き先">
+    <div class="grp go" role="group" aria-label="行き先">
       <span class="lbl">行き先</span>
       <button id="goEntry" data-go="entry">入口</button>
       <button id="goSofa" data-go="sofa">ソファ</button>
       <button id="goTable" data-go="table">食卓</button>
       <button id="goKitchen" data-go="kitchen">キッチン</button>
     </div>
-    <div class="grp" role="group" aria-label="目線の高さ">
+    <div class="grp extra" role="group" aria-label="目線の高さ">
       <span class="lbl">目線</span>
       <button id="eyeAdult" data-eye="1.55" aria-pressed="true">大人</button>
       <button id="eyeChild" data-eye="1.15" aria-pressed="false">子ども</button>
       <button id="eyeSit" data-eye="1.0" aria-pressed="false">座る</button>
     </div>
-    <div class="grp" role="group" aria-label="家具">
+    <div class="grp extra" role="group" aria-label="家具">
       <span class="lbl">家具</span>
       <button id="furnOn" aria-pressed="true">あり</button>
       <button id="furnOff" aria-pressed="false">なし</button>
     </div>
-    <div class="grp">
+    <div class="grp main">
       <button id="doorBtn" hidden>引き戸を開ける</button>
       <button id="editBtn" class="strong">配置を変える</button>
+      <button id="moreBtn" aria-expanded="false">その他</button>
+    </div>
+    <div class="grp extra">
       <button id="measureBtn" aria-pressed="false">寸法を測る</button>
     </div>
   </div>
@@ -165,8 +207,15 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
       </div>
       <button id="edClose" class="strong">歩いて見る</button>
     </div>
-    <div id="edStage"><canvas id="plan" aria-label="上から見た図。家具を押して選び、引きずって動かす"></canvas></div>
-    <div class="edRow" id="edSel">
+    <div id="edStage">
+      <canvas id="plan" aria-label="上から見た図。家具を押して選び、引きずって動かす。2本の指でつまむと図を拡大できる"></canvas>
+      <div id="zoomBox">
+        <button id="zoomIn" aria-label="図を拡大する">＋</button>
+        <button id="zoomOut" aria-label="図を縮小する">－</button>
+        <button id="zoomFit" aria-label="図の全体を表示する">全体</button>
+      </div>
+    </div>
+    <div class="edRow" id="edCtl">
       <span id="selName" class="selName">家具を押して選び、引きずって動かす</span>
       <span class="grp" id="selBtns">
         <button id="rotL" disabled>左へ90°</button>
@@ -175,9 +224,14 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
         <button id="rotP" disabled>＋15°</button>
         <button id="hideBtn" disabled>しまう</button>
       </span>
-    </div>
-    <div class="edRow" id="stored" hidden></div>
-    <div class="edRow">
+      <span class="grp" id="nudge" role="group" aria-label="5センチずつ動かす">
+        <span class="lbl">少し動かす</span>
+        <button id="nudL" disabled aria-label="左へ5センチ動かす">←</button>
+        <button id="nudU" disabled aria-label="奥へ5センチ動かす">↑</button>
+        <button id="nudD" disabled aria-label="手前へ5センチ動かす">↓</button>
+        <button id="nudR" disabled aria-label="右へ5センチ動かす">→</button>
+      </span>
+      <span class="brk"></span>
       <span class="grp" role="group" aria-label="仕切り">
         <span class="lbl">仕切り</span>
         <button id="partOff" aria-pressed="true">なし</button>
@@ -186,6 +240,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
       <button id="resetBtn">今の配置に戻す</button>
       <button id="listBtn">配置の一覧・保存</button>
     </div>
+    <div class="edRow" id="stored" hidden></div>
     <div id="sheet" hidden>
       <div class="sheetHead"><strong>配置の一覧</strong><button id="sheetClose">閉じる</button></div>
       <div class="saveRow">
@@ -199,6 +254,8 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
       <div id="presetList"></div>
     </div>
   </div>
+
+  <div id="unzoom" hidden><span>画面が拡大されています</span><button id="unzoomBtn">元の大きさに戻す</button></div>
 
   <div class="panel" id="loading" role="status">
     <div id="loadText">部屋を読み込んでいます</div>
@@ -563,7 +620,10 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  // スマホでページ全体が拡大されるのを止める（2本指のつまみ・2回たたき）。図の拡大は「配置を変える」の中で別に用意してある
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false }); });
+  document.addEventListener('touchmove', function (e) { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  document.addEventListener('dblclick', function (e) { e.preventDefault(); });
   var MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'];
   window.addEventListener('keydown', function (e) {
     if (MOVE_KEYS.indexOf(e.code) < 0 || e.metaKey || e.ctrlKey || !$('editor').hidden) return;
@@ -651,7 +711,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
           c.fillStyle = sel ? '#1f5d4a' : '#6f5334';
           c.beginPath(); c.arc(mx(o.x + fx * (o.hy - 0.05)), my(o.y + fy * (o.hy - 0.05)), 2.2, 0, 2 * PI); c.fill();
           if (Math.min(o.hx, o.hy) * 2 * v.s > 15 && Math.max(o.hx, o.hy) * 2 * v.s > 30) {
-            var fs = Math.max(9, Math.min(12, v.s * 0.16)), label = shortName(n);
+            var fs = Math.max(9, Math.min(14, v.s * 0.16)), label = shortName(n);
             c.fillStyle = '#3a2b18'; c.font = '600 ' + fs + 'px "Zen Kaku Gothic New","Hiragino Sans",sans-serif';
             c.textAlign = 'center'; c.textBaseline = 'middle';
             var ex = (Math.abs(o.c) * o.hx + Math.abs(o.s) * o.hy) * 2 * v.s, ey = (Math.abs(o.s) * o.hx + Math.abs(o.c) * o.hy) * 2 * v.s;
@@ -686,49 +746,141 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   });
 
   /* ---------- 配置を変える画面 ---------- */
-  var editor = $('editor'), plan = $('plan'), pctx = plan.getContext('2d'), EV = { x0: -0.35, y1: YMAX + 0.36, s: 1, ox: 0, oy: 0 }, EH = YMAX + 0.96, ed = { sel: null, drag: null };
+  var editor = $('editor'), plan = $('plan'), pctx = plan.getContext('2d'), EV = { x0: -0.35, y1: YMAX + 0.36, s: 1, ox: 0, oy: 0 }, EH = YMAX + 0.96, ed = { sel: null, drag: null, pan: null, pinch: null };
+  // 図の見え方。bs・box・boy＝基本（全体が入る）縮尺と位置、z＝拡大率、px・py＝ずらした量
+  var PV = { bs: 1, box: 0, boy: 0, z: 1, px: 0, py: 0, w: 0, h: 0 }, ZMAX = 5;
+  var MAIN_H = SC.zones[1][3] + 0.36 + 0.6;                                   // 窓からキッチンの壁まで（家具を置く範囲）が入る高さ
+  function clampView() {
+    var m = 10, L0 = PV.box, R0 = PV.box + 7.0 * PV.bs, T0 = PV.boy, B0 = PV.boy + EH * PV.bs, z = PV.z;
+    if ((R0 - L0) * z <= PV.w) PV.px = (PV.w - (R0 - L0) * z) / 2 - L0 * z;
+    else PV.px = Math.max(PV.w - m - R0 * z, Math.min(m - L0 * z, PV.px));
+    if ((B0 - T0) * z <= PV.h) PV.py = (PV.h - (B0 - T0) * z) / 2 - T0 * z;
+    else PV.py = Math.max(PV.h - m - B0 * z, Math.min(m - T0 * z, PV.py));
+  }
+  function applyView() { EV.s = PV.bs * PV.z; EV.ox = PV.box * PV.z + PV.px; EV.oy = PV.boy * PV.z + PV.py; }
   function sizeEditor() {
     var st = $('edStage'), w = st.clientWidth, h = st.clientHeight; if (!w || !h) return;
     plan.width = w * dpr; plan.height = h * dpr;
-    EV.s = Math.min(w / 7.0, h / EH); EV.ox = (w - 7.0 * EV.s) / 2; EV.oy = (h - EH * EV.s) / 2 + 0.1 * EV.s;
+    var all = Math.min(w / 7.0, h / EH), main = Math.min(w / 7.0, h / MAIN_H);
+    PV.w = w; PV.h = h;
+    if (all < 70 && main > all * 1.12) { PV.bs = main; PV.box = (w - 7.0 * main) / 2; PV.boy = h - EH * main; }   // 縦が足りない画面：家具を置く範囲を大きく見せ、キッチンの奥は図をずらして見る
+    else { PV.bs = all; PV.box = (w - 7.0 * all) / 2; PV.boy = (h - EH * all) / 2; }
+    clampView(); applyView();
+    $('zoomFit').disabled = PV.z === 1; $('zoomOut').disabled = PV.z === 1; $('zoomIn').disabled = PV.z >= ZMAX;
   }
+  function zoomAt(cx, cy, z2) {
+    z2 = Math.max(1, Math.min(ZMAX, z2));
+    var k = z2 / PV.z;
+    PV.px = cx - (cx - PV.px) * k; PV.py = cy - (cy - PV.py) * k; PV.z = z2;
+    if (z2 === 1) { PV.px = 0; PV.py = 0; }
+    clampView(); applyView(); drawEditor();
+    $('zoomFit').disabled = PV.z === 1; $('zoomOut').disabled = PV.z === 1; $('zoomIn').disabled = PV.z >= ZMAX;
+  }
+  function zoomCenter() {                                                    // 選んだ家具があれば、それを中心に拡大する
+    if (ed.sel && shown(ed.sel)) { var it = layout.items[ed.sel]; return [EV.ox + (it[0] - EV.x0) * EV.s, EV.oy + (EV.y1 - it[1]) * EV.s]; }
+    return [PV.w / 2, PV.h / 2];
+  }
+  $('zoomIn').addEventListener('click', function () { var c = zoomCenter(); zoomAt(c[0], c[1], PV.z * 1.6); });
+  $('zoomOut').addEventListener('click', function () { var c = zoomCenter(); zoomAt(c[0], c[1], PV.z / 1.6 < 1.05 ? 1 : PV.z / 1.6); });
+  $('zoomFit').addEventListener('click', function () { zoomAt(PV.w / 2, PV.h / 2, 1); });
   function drawEditor() {
     if (editor.hidden) return;
     pctx.setTransform(dpr, 0, 0, dpr, 0, 0); pctx.clearRect(0, 0, plan.width, plan.height);
     drawPlan(pctx, EV, { labels: true, sel: ed.sel, red: conflicts() });
   }
-  function planPt(e) { var r = plan.getBoundingClientRect(); return [(e.clientX - r.left - EV.ox) / EV.s + EV.x0, EV.y1 - (e.clientY - r.top - EV.oy) / EV.s]; }
-  function hitFurn(p) {
-    var best = null, bestArea = 1e9;
+  function ptXY(e) { var r = plan.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  function planPt(e) { var q = ptXY(e); return [(q[0] - EV.ox) / EV.s + EV.x0, EV.y1 - (q[1] - EV.oy) / EV.s]; }
+  // 押した場所の家具。家具の上を押したときは、その中でいちばん小さいもの（食卓の下の椅子など）。
+  // 外れたときは、近く（slop ピクセル以内）でいちばん近いもの。指は細かく押せないので、指のときは広めにとる
+  function hitFurn(p, slop) {
+    var best = null, bestArea = 1e9, near = null, nearD = 1e9, m = (slop || 6) / EV.s;
     NAMES.forEach(function (n) {
       if (!shown(n) || locked(n)) return;
-      var o = furnOBB(n), dx = p[0] - o.x, dy = p[1] - o.y, lx = dx * o.c + dy * o.s, ly = -dx * o.s + dy * o.c, m = 6 / EV.s;
-      if (Math.abs(lx) <= o.hx + m && Math.abs(ly) <= o.hy + m && o.hx * o.hy < bestArea) { best = n; bestArea = o.hx * o.hy; }
+      var o = furnOBB(n), dx = p[0] - o.x, dy = p[1] - o.y, lx = Math.abs(dx * o.c + dy * o.s), ly = Math.abs(-dx * o.s + dy * o.c);
+      var d = Math.hypot(Math.max(0, lx - o.hx), Math.max(0, ly - o.hy));
+      if (d === 0) { if (o.hx * o.hy < bestArea) { best = n; bestArea = o.hx * o.hy; } }
+      else if (d <= m && d < nearD) { near = n; nearD = d; }
     });
-    return best;
+    return best || near;
   }
   function round2(v) { return Math.round(v * 100) / 100; }
   function touched() { layout.dirty = true; placeFurniture(); drawEditor(); updateChip(); }
+  var pts = new Map();                                                        // 図に触れている指（マウス）
+  function cancelDrag() {
+    var d = ed.drag; ed.drag = null;
+    if (d && d.moved) { d.items.forEach(function (m) { layout.items[m[0]][0] = m[1][0]; layout.items[m[0]][1] = m[1][1]; }); touched(); }
+  }
+  function two() { var a = Array.from(pts.values()); return { d: Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]) || 1, x: (a[0][0] + a[1][0]) / 2, y: (a[0][1] + a[1][1]) / 2 }; }
   plan.addEventListener('pointerdown', function (e) {
-    var p = planPt(e), n = hitFurn(p);
-    ed.sel = n;
-    if (n) {
-      try { plan.setPointerCapture(e.pointerId); } catch (err) {}
-      ed.drag = { id: e.pointerId, p0: p, items: members(n).map(function (m) { return [m, layout.items[m].slice()]; }), moved: false };
+    try { plan.setPointerCapture(e.pointerId); } catch (err) {}
+    pts.set(e.pointerId, ptXY(e));
+    e.preventDefault();
+    if (pts.size >= 2) {                                                      // 2本指：図の拡大とずらし
+      cancelDrag(); ed.pan = null;
+      if (pts.size === 2) { var t = two(); ed.pinch = { d: t.d, x: t.x, y: t.y, z: PV.z, px: PV.px, py: PV.py }; }
+      return;
     }
-    renderEditorControls(); drawEditor(); e.preventDefault();
+    var p = planPt(e), n = hitFurn(p, e.pointerType === 'touch' ? 16 : 6);
+    if (n) { ed.sel = n; ed.drag = { id: e.pointerId, p0: p, items: members(n).map(function (m) { return [m, layout.items[m].slice()]; }), moved: false }; }
+    else ed.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, px: PV.px, py: PV.py, moved: false };     // 何もないところ：引きずれば図がずれ、押すだけなら選択を外す
+    renderEditorControls(); drawEditor();
   });
   plan.addEventListener('pointermove', function (e) {
-    var d = ed.drag; if (!d || d.id !== e.pointerId) return;
-    var p = planPt(e), dx = p[0] - d.p0[0], dy = p[1] - d.p0[1];
-    if (!d.moved && Math.hypot(dx, dy) * EV.s < 5) return;
-    d.moved = true;
-    d.items.forEach(function (m) { layout.items[m[0]][0] = round2(m[1][0] + dx); layout.items[m[0]][1] = round2(m[1][1] + dy); });
-    touched();
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, ptXY(e));
+    if (ed.pinch) {
+      if (pts.size < 2) return;
+      var t = two(), z2 = Math.max(1, Math.min(ZMAX, ed.pinch.z * t.d / ed.pinch.d)), k = z2 / ed.pinch.z;
+      PV.z = z2; PV.px = t.x - (ed.pinch.x - ed.pinch.px) * k; PV.py = t.y - (ed.pinch.y - ed.pinch.py) * k;
+      clampView(); applyView(); drawEditor();
+      $('zoomFit').disabled = PV.z === 1; $('zoomOut').disabled = PV.z === 1; $('zoomIn').disabled = PV.z >= ZMAX;
+      return;
+    }
+    var d = ed.drag;
+    if (d && d.id === e.pointerId) {
+      var p = planPt(e), dx = p[0] - d.p0[0], dy = p[1] - d.p0[1];
+      if (!d.moved && Math.hypot(dx, dy) * EV.s < 5) return;
+      d.moved = true;
+      d.items.forEach(function (m) { layout.items[m[0]][0] = round2(m[1][0] + dx); layout.items[m[0]][1] = round2(m[1][1] + dy); });
+      touched();
+    } else if (ed.pan && ed.pan.id === e.pointerId) {                         // 何もないところを引きずる：図をずらす
+      if (!ed.pan.moved && Math.hypot(e.clientX - ed.pan.x, e.clientY - ed.pan.y) < 6) return;
+      ed.pan.moved = true;
+      PV.px = ed.pan.px + (e.clientX - ed.pan.x); PV.py = ed.pan.py + (e.clientY - ed.pan.y);
+      clampView(); applyView(); drawEditor();
+    }
   });
-  function planUp(e) { var d = ed.drag; if (!d || d.id !== e.pointerId) return; ed.drag = null; if (d.moved) applyLook(); }
+  function planUp(e) {
+    pts.delete(e.pointerId);
+    if (ed.pinch) { if (pts.size < 2) ed.pinch = null; return; }              // つまんだあとに残った指では、家具を動かさない
+    var d = ed.drag;
+    if (d && d.id === e.pointerId) { ed.drag = null; if (d.moved) applyLook(); }
+    if (ed.pan && ed.pan.id === e.pointerId) {
+      if (!ed.pan.moved && e.type === 'pointerup') { ed.sel = null; renderEditorControls(); drawEditor(); }
+      ed.pan = null;
+    }
+  }
   plan.addEventListener('pointerup', planUp);
   plan.addEventListener('pointercancel', planUp);
+  plan.addEventListener('wheel', function (e) { e.preventDefault(); var q = ptXY(e); zoomAt(q[0], q[1], PV.z * Math.exp(-e.deltaY * 0.0016)); }, { passive: false });
+  // 矢印のボタン：選んだ家具を5cmずつ動かす（押しっぱなしで続けて動く）
+  var nudgeT = null;
+  function nudge(dx, dy) {
+    var n = ed.sel; if (!n) return;
+    members(n).forEach(function (m) { var it = layout.items[m]; it[0] = round2(it[0] + dx); it[1] = round2(it[1] + dy); });
+    touched(); clearTimeout(nudgeT); nudgeT = setTimeout(applyLook, 300);
+  }
+  [['nudL', -0.05, 0], ['nudR', 0.05, 0], ['nudU', 0, 0.05], ['nudD', 0, -0.05]].forEach(function (a) {
+    var b = $(a[0]), t1 = null, t2 = null;
+    function stop() { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; }
+    b.addEventListener('pointerdown', function (e) {
+      if (b.disabled) return;
+      nudge(a[1], a[2]); stop();
+      t1 = setTimeout(function () { t2 = setInterval(function () { nudge(a[1], a[2]); }, 90); }, 420);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { b.addEventListener(t, stop); });
+    b.addEventListener('click', function (e) { if (e.detail === 0) nudge(a[1], a[2]); });      // キーボードで押したとき
+  });
   function rotateSel(deg) {
     var n = ed.sel; if (!n) return;
     var piv = layout.items[n], a = deg * RAD, c = Math.cos(a), s = Math.sin(a), px = piv[0], py = piv[1];
@@ -751,7 +903,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     var n = ed.sel, nm = $('selName');
     nm.textContent = n ? n + (SC.sets[n] && !locked(SC.sets[n][0]) ? '（椅子も一緒に動く）' : '') : '家具を押して選び、引きずって動かす';
     nm.className = 'selName' + (n ? ' on' : '');
-    ['rotL', 'rotR', 'rotM', 'rotP', 'hideBtn'].forEach(function (b) { $(b).disabled = !n; });   // 行の高さを変えない（引きずり中に図がずれないように）
+    ['rotL', 'rotR', 'rotM', 'rotP', 'hideBtn', 'nudL', 'nudU', 'nudD', 'nudR'].forEach(function (b) { $(b).disabled = !n; });   // 行の高さを変えない（引きずり中に図がずれないように）
     var st = $('stored'), hid = layout.hidden.filter(function (m) { return !locked(m); });
     st.hidden = !hid.length;
     while (st.firstChild) st.removeChild(st.firstChild);
@@ -785,7 +937,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     editor.hidden = false; $('sheet').hidden = true;
     sizeEditor(); renderEditorControls(); drawEditor();
   }
-  function closeEditor() { editor.hidden = true; ed.sel = null; ed.drag = null; unstick(); applyLook(); }
+  function closeEditor() { editor.hidden = true; ed.sel = null; ed.drag = null; ed.pan = null; ed.pinch = null; pts.clear(); unstick(); applyLook(); }
   $('editBtn').addEventListener('click', openEditor);
   $('edClose').addEventListener('click', closeEditor);
   new ResizeObserver(function () { if (!editor.hidden) { sizeEditor(); drawEditor(); } }).observe($('edStage'));
@@ -868,6 +1020,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     }
   });
   $('listBtn').addEventListener('click', function () { renderLists(); storeNote(); $('sheet').hidden = false; });
+  $('saveName').addEventListener('blur', function () { setTimeout(function () { window.scrollTo(0, 0); }, 80); });   // キーボードを閉じたあと、画面がずれたままにならないように
   $('sheetClose').addEventListener('click', function () { $('sheet').hidden = true; });
   function localStore() { db = null; loadLocal(); renderLists(); }
   if (window.claude && typeof window.claude.use === 'function') {
@@ -903,6 +1056,12 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   $('furnOn').addEventListener('click', function () { setFurniture(true); });
   $('furnOff').addEventListener('click', function () { setFurniture(false); });
   $('doorBtn').addEventListener('click', toggleDoor);
+  $('moreBtn').addEventListener('click', function () {
+    var on = !$('bar').classList.contains('open');
+    $('bar').classList.toggle('open', on);
+    this.setAttribute('aria-expanded', String(on)); this.textContent = on ? '閉じる' : 'その他';
+    layoutView();
+  });
   $('helpBtn').addEventListener('click', function () {
     var h = $('help'); h.hidden = !h.hidden; this.setAttribute('aria-expanded', String(!h.hidden));
   });
@@ -947,6 +1106,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     if (coarse) stick.hidden = false; else { $('hint').hidden = false; }
     layoutView();
     applyHash();
+    loadResume();
     var last = performance.now(), mapTick = 0;
     (function frame(now) {
       requestAnimationFrame(frame);
@@ -957,6 +1117,54 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
       if ((mapTick += dt) > 0.05) { mapTick = 0; drawMap(); }
     })(last);
   }).catch(function (e) { fail('部屋の絵を読み込めませんでした（' + e.message + '）。ページを開き直してください。'); if (window.console) console.error(e); });
+
+  /* ---------- 画面が拡大されてしまったときに戻す ---------- */
+  // 拡大は起きないように止めてあるが、端末の設定などで拡大された場合の逃げ道。まず自動で戻し、戻らなければボタンを出す
+  var vv = window.visualViewport, topLevel = false, unzoomTries = 0;
+  try { topLevel = window.top === window; } catch (err) {}
+  function saveResume() {
+    try {
+      sessionStorage.setItem('sumai_resume', JSON.stringify({ l: pack(), dirty: !!layout.dirty, x: state.x, y: state.y, h: state.h, p: state.p,
+        furn: state.furn, ed: !editor.hidden, door: state.door }));
+    } catch (err) {}
+  }
+  function loadResume() {
+    var d = null;
+    try { var t = sessionStorage.getItem('sumai_resume'); if (t) { sessionStorage.removeItem('sumai_resume'); d = JSON.parse(t); } } catch (err) {}
+    if (!d || !d.l) return;
+    var l = unpack(d.l, d.l.name); l.dirty = !!d.dirty;
+    setLayout(l).then(function () { if (d.door && layout.partition) toggleDoor(); });
+    if (d.furn === false) setFurniture(false);
+    if (isFinite(d.x) && isFinite(d.y)) { state.x = d.x; state.y = d.y; state.h = d.h || 0; state.p = d.p || 0; unstick(); }
+    if (d.ed) openEditor();
+  }
+  function resetZoom() {                                                      // 表示の指定を書き直すと、Safari は拡大を元に戻す
+    var m = document.querySelector('meta[name="viewport"]');
+    if (!m || !topLevel) return;
+    var c = m.getAttribute('content');
+    m.setAttribute('content', 'width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover');
+    setTimeout(function () { m.setAttribute('content', c); }, 400);
+  }
+  function placeUnzoom() {
+    var z = vv && vv.scale > 1.04, el = $('unzoom');
+    el.hidden = !z;
+    if (z) el.style.transform = 'translate(' + (vv.offsetLeft + 8 / vv.scale) + 'px,' + (vv.offsetTop + 8 / vv.scale) + 'px) scale(' + (1 / vv.scale) + ')';
+  }
+  if (vv) {
+    var vvT = null;
+    var onVV = function () {
+      placeUnzoom();
+      clearTimeout(vvT);
+      vvT = setTimeout(function () { if (vv.scale > 1.04 && unzoomTries < 2 && !pointers.size) { unzoomTries++; resetZoom(); } }, 450);
+    };
+    vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV);
+  }
+  $('unzoomBtn').addEventListener('click', function () {
+    resetZoom();
+    setTimeout(function () {                                                  // それでも戻らなければ、いまの配置と立ち位置を覚えたままページを開き直す
+      if (vv && vv.scale > 1.04) { saveResume(); location.replace(location.pathname + '?r=' + Date.now() + location.hash); }
+    }, 800);
+  });
 
   /* 確認用：アドレスの #entry / #sofa / #table / #kitchen / #nofurn / #p1〜#p3 / #edit / #selftest */
   function applyHash() {
@@ -992,7 +1200,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     getLayout: function () { return layout; }, setLayout: setLayout, preset: function (i) { return setLayout(fromPreset(SC.presets[i])); },
     openEditor: openEditor, closeEditor: closeEditor, pack: pack, lookKey: lookKey, storeMode: function () { return db ? 'db' : 'local'; }, toggleDoor: toggleDoor,
     planXY: function (x, y) { var r = plan.getBoundingClientRect(); return [r.left + EV.ox + (x - EV.x0) * EV.s, r.top + EV.oy + (EV.y1 - y) * EV.s]; },
-    entry: ENTRY, kitchenSpot: KSPOT,
+    entry: ENTRY, kitchenSpot: KSPOT, view: function () { return { z: PV.z, px: PV.px, py: PV.py, s: EV.s }; },
     door: function () { return PART ? { open: state.door, pos: state.doorPos, z: PART.door.position.z, shown: PART.door.visible, wall: PART.wall.visible, slide: PART.slide } : null; } };
   }
 })();
