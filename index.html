@@ -167,12 +167,29 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   #resetBtn,#listBtn{flex:1 1 0}
   #stored{grid-column:2;grid-row:3}
 }
+/* スマホを縦に持ったとき（#app.split）：絵は上に横長で出し、スティック・「操作」・見取り図は絵の下に1列、ボタンはいちばん下。絵には何もかぶせない。
+   細い画面いっぱいに広い視野を入れると、足もとと天井まで写って線が丸く曲がり、魚眼レンズのように見えるため */
+#pad{display:none;position:absolute;left:0;right:0;bottom:0;top:var(--viewH,100%)}
+#turnHint{left:50%;top:calc(var(--viewH,100%) - 46px);transform:translateX(-50%);padding:7px 12px;font-size:13px;white-space:nowrap;pointer-events:none;transition:opacity .6s}
+#app.split #view{height:var(--viewH)}
+#app.split #pad{display:block}
+#app.split #titleBar{top:calc(var(--rowTop) + 52px);left:calc(50% - 6px);transform:translateX(-50%);padding:4px;gap:0;max-width:none}
+#app.split #titleBar strong{display:none}
+#app.split #mapPanel{top:var(--rowTop)}
+#app.split #stick{top:calc(var(--rowTop) + 19px)}
+#app.split #help{top:8px;max-height:calc(var(--viewH) - 16px)}
+#app.split #status{top:8px;max-width:calc(100% - 16px)}
+#app.split #bar{background:var(--sheet);-webkit-backdrop-filter:none;backdrop-filter:none}      /* 絵の上にないので透かさない（「その他」を開くとスティックと見取り図にかぶる） */
+#padTip{position:absolute;left:0;right:0;text-align:center;font-size:12px;line-height:18px;color:var(--muted);pointer-events:none}
+#app.split [data-fov="w90"]{display:none}                  /* 縦持ちの「ふつう」は左右100度なので、90°は出さない */
 @media (prefers-reduced-motion: reduce){#view{transition:none}}
 </style>
 
 <div id="app">
   <canvas id="view" tabindex="0" aria-label="部屋の中を歩いて見られる3D"></canvas>
   <div id="labels"></div>
+  <div id="pad"></div>
+  <div id="padTip" hidden>ここをなぞっても見回せます</div>
 
   <div class="panel" id="titleBar">
     <strong>わが家の室内ウォーク</strong>
@@ -183,14 +200,15 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     <h2>パソコン</h2>
     <p>W・A・S・D か矢印キーで歩く（←→は向きを変える）。ドラッグで見回す。床をクリックするとそこへ歩く。Shift を押している間は速く歩く。</p>
     <h2>iPhone・iPad</h2>
-    <p>左下の丸いスティックで歩く。画面をなぞって見回す。床をタップするとそこへ歩く。</p>
+    <p>丸いスティックで歩く。絵をなぞって見回す。床をタップするとそこへ歩く。</p>
+    <p>縦に持つと、絵は上に横長で出る（左右 約100度。線はまっすぐ）。絵の下の空いたところをなぞっても見回せる。横に持つと、左右120度が広いまま大きく見える（画面の向きのロックは外しておく）。</p>
     <h2>配置を変える</h2>
     <p>「配置を変える」で上から見た図が開く。家具を押して選び、引きずって動かす。食卓や机を動かすと椅子もついてくる。重なった家具は赤くなる。動かしたあとは、家具の影が簡単な影に替わる。</p>
     <p>図は、2本の指でつまむか「＋」「－」で拡大できる（パソコンはマウスのホイール）。拡大中は、何もないところを引きずると図が動く。矢印のボタンは、選んだ家具を5cmずつ動かす。</p>
     <h2>仕切りと引き戸</h2>
     <p>仕切りを「あり」にすると、旧和室とLDKの間に壁と引き戸が建つ。引き戸は「引き戸を開ける」か、戸を直接押すと開け閉めできる。閉めている間は通れない。</p>
     <h2>そのほか</h2>
-    <p>「視野」は、左右に見える広さ（90度・120度・150度）。人の目は120度くらい。広くするほど物は小さく見え、端のほうは少し曲がって見える。スマホでは「その他」の中にあり、最初は120度になっている。スマホを横向きにすると、広いまま大きく見える。</p>
+    <p>「視野」は、左右に見える広さ。人の目は120度くらい。広くするほど物は小さく見え、120度・150度は端のほうが曲がって見える。スマホでは「その他」の中にあり、縦持ちと横持ちで別々に覚える（最初は、縦持ちが100度、横持ちが120度）。</p>
     <p>見取り図を押すと、その場所へ移動する。「寸法を測る」は、測りたい2か所を順に押す。実測は部屋の幅・奥行き・天井高・食卓・テレビ台だけで、ほかは写真からの推定。</p>
   </div>
 
@@ -201,6 +219,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
 
   <div class="panel" id="status" role="status" hidden></div>
   <div class="panel" id="hint" hidden>W A S D／矢印キーで歩く・ドラッグで見回す・床をクリックでそこへ歩く</div>
+  <div class="panel" id="turnHint" hidden>スマホを横にすると、広く大きく見えます</div>
   <div id="stick" hidden aria-label="歩くスティック"><div id="knob"></div></div>
 
   <div class="panel" id="bar">
@@ -735,11 +754,22 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     var p = pointers.get(e.pointerId); if (!p) return;
     var dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY; p.moved += Math.abs(dx) + Math.abs(dy);
-    if (p.moved > 6) {
-      var k = WIDE.on ? 2 * WIDE.half / canvas.clientWidth * 0.8 : camera.fov * RAD / canvas.clientHeight;
-      state.h += dx * k; state.p = Math.max(-1.2, Math.min(1.2, state.p + dy * k)); moved = true;
-    }
+    if (p.moved > 6) turn(dx, dy);
   });
+  function turn(dx, dy) {
+    var k = WIDE.on ? 2 * WIDE.half / canvas.clientWidth * 0.8 : camera.fov * RAD / canvas.clientHeight;
+    state.h += dx * k; state.p = Math.max(-1.2, Math.min(1.2, state.p + dy * k)); moved = true;
+  }
+  // 縦持ちでは、絵の下の空いたところをなぞっても見回せる（親指が上の絵まで届かなくても向きを変えられる）
+  var pad = $('pad'), padPt = null;
+  pad.addEventListener('pointerdown', function (e) { padPt = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { pad.setPointerCapture(e.pointerId); } catch (err) {} });
+  pad.addEventListener('pointermove', function (e) {
+    if (!padPt || e.pointerId !== padPt.id) return;
+    turn(e.clientX - padPt.x, e.clientY - padPt.y); padPt.x = e.clientX; padPt.y = e.clientY;
+  });
+  function padEnd(e) { if (padPt && e.pointerId === padPt.id) padPt = null; }
+  pad.addEventListener('pointerup', padEnd);
+  pad.addEventListener('pointercancel', padEnd);
   function release(e) {
     var p = pointers.get(e.pointerId); if (!p) return;
     pointers.delete(e.pointerId);
@@ -799,7 +829,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     mid.copy(mPts[0]).add(mPts[1]).multiplyScalar(0.5);
     var show = toScreen(mid, mid);
     mLabel.hidden = !show;
-    if (show) { mLabel.style.left = (mid.x * 0.5 + 0.5) * app.clientWidth + 'px'; mLabel.style.top = (-mid.y * 0.5 + 0.5) * app.clientHeight + 'px'; }
+    if (show) { mLabel.style.left = (mid.x * 0.5 + 0.5) * canvas.clientWidth + 'px'; mLabel.style.top = (-mid.y * 0.5 + 0.5) * canvas.clientHeight + 'px'; }
   }
   function setStatus(t) { var s = $('status'); s.hidden = !t; s.textContent = t || ''; }
   $('measureBtn').addEventListener('click', function () {
@@ -1185,13 +1215,34 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   $('furnOff').addEventListener('click', function () { setFurniture(false); });
   $('doorBtn').addEventListener('click', toggleDoor);
   var fovBtns = document.querySelectorAll('[data-fov]');
+  // 視野は、縦持ち（split）とそれ以外で別々に覚える。最初は、縦持ちが「ふつう」（左右100度・線はまっすぐ）、スマホの横持ちが120度、パソコンが「ふつう」
+  var split = null, turnSeen = false, fovPick = { split: null, full: null };
+  try {
+    fovPick.split = localStorage.getItem('sumai_fov_split');
+    fovPick.full = localStorage.getItem('sumai_fov_full') || (coarse ? null : localStorage.getItem('sumai_fov'));
+  } catch (err) {}
+  function fovNow() {
+    var m = fovPick[split ? 'split' : 'full'];
+    return m && m in FOVS && m !== 'test' ? m : (coarse && !split ? 'wide' : 'normal');
+  }
+  function markFov() {
+    Array.prototype.forEach.call(fovBtns, function (b) { b.setAttribute('aria-pressed', String(b.dataset.fov === fovMode)); });
+    fovBtns[0].textContent = split ? '100°' : 'ふつう';
+    if (split) fovBtns[0].setAttribute('aria-label', '左右100度'); else fovBtns[0].removeAttribute('aria-label');
+  }
   function setFov(m, save) {
     if (!(m in FOVS)) m = 'normal';
     if (m !== 'test') { WIDE.d = 1; WIDE.c = 1; }
     fovMode = m;
-    Array.prototype.forEach.call(fovBtns, function (b) { b.setAttribute('aria-pressed', String(b.dataset.fov === m)); });
-    if (save) { try { localStorage.setItem('sumai_fov', m); } catch (err) {} }
+    if (save) { fovPick[split ? 'split' : 'full'] = m; try { localStorage.setItem(split ? 'sumai_fov_split' : 'sumai_fov_full', m); } catch (err) {} }
     layoutView();
+  }
+  function turnHint() {                                                       // 縦持ちのスマホに、横にすると広く見えることを一度だけ知らせる
+    if (!split || !coarse || turnSeen || !$('loading').hidden) return;
+    turnSeen = true;
+    try { if (localStorage.getItem('sumai_turn')) return; localStorage.setItem('sumai_turn', '1'); } catch (err) {}
+    var el = $('turnHint'); el.hidden = false;
+    setTimeout(function () { el.style.opacity = '0'; setTimeout(function () { el.hidden = true; }, 700); }, 8000);
   }
   Array.prototype.forEach.call(fovBtns, function (b) { b.addEventListener('click', function () { setFov(b.dataset.fov, true); }); });
   $('moreBtn').addEventListener('click', function () {
@@ -1205,16 +1256,39 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   });
 
   /* ---------- 画面の大きさ ---------- */
+  function barClosedH() {                                                     // 「その他」を閉じているときのバーの高さ（開いている間も同じ値を返す）
+    var b = $('bar'), cs = getComputedStyle(b);
+    return b.querySelector('.grp.go').offsetHeight + b.querySelector('.grp.main').offsetHeight + (parseFloat(cs.rowGap) || 0)
+      + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + 2;
+  }
   function layoutView() {
     var w = app.clientWidth, h = app.clientHeight; if (!w || !h) return;
+    var s = w <= 640 && h / w >= 1.2;                                         // スマホの縦持ち（細くて縦に長い画面）
+    if (s !== split) {
+      split = s; app.classList.toggle('split', s);
+      if (fovMode !== 'test') { fovMode = fovNow(); WIDE.d = 1; WIDE.c = 1; }
+      if (!s) $('turnHint').hidden = true;
+    }
+    markFov();
+    if (split) {                                                              // 絵は上に横長（幅の8割まで）。その下にスティックと見取り図の列、いちばん下にボタン
+      var room = h - barClosedH() - 8 - $('mapPanel').offsetHeight;
+      h = Math.max(180, Math.min(Math.round(w * 0.8), room - 16));
+      var gap = Math.round(Math.max(8, Math.min(24, (room - h) / 2))), free = room - h - gap;      // free＝列とボタンの間の空き
+      app.style.setProperty('--viewH', h + 'px');
+      app.style.setProperty('--rowTop', (h + gap) + 'px');
+      $('padTip').style.top = (h + gap + $('mapPanel').offsetHeight + (free - 18) / 2) + 'px';
+      $('padTip').hidden = free < 34 || !coarse;
+    } else $('padTip').hidden = true;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = camera.aspect >= 1.2 ? 62 : Math.min(92, 2 * Math.atan(Math.tan(36 * RAD) / camera.aspect) / RAD);
+    camera.fov = split ? 2 * Math.atan(Math.tan(50 * RAD) / camera.aspect) / RAD      // 縦持ちの「ふつう」は左右100度
+      : camera.aspect >= 1.2 ? 62 : Math.min(92, 2 * Math.atan(Math.tan(36 * RAD) / camera.aspect) / RAD);
     camera.updateProjectionMatrix();
     setupWide(w * renderer.getPixelRatio()); kick(4);
     var flat = window.matchMedia('(orientation:landscape) and (max-height:520px)').matches;      // スマホの横向き：スティックは左下、ボタンは右下
-    stick.style.bottom = flat ? '14px' : ($('bar').offsetHeight + 30) + 'px';
+    stick.style.bottom = split ? 'auto' : flat ? '14px' : ($('bar').offsetHeight + 30) + 'px';
     $('hint').style.bottom = ($('bar').offsetHeight + 26) + 'px';
+    turnHint();
   }
   new ResizeObserver(layoutView).observe(app);
 
@@ -1244,8 +1318,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     placeFurniture(); updateChip(); renderLists();
     $('loading').hidden = true;
     if (coarse) stick.hidden = false; else { $('hint').hidden = false; }
-    var fov0 = null; try { fov0 = localStorage.getItem('sumai_fov'); } catch (err) {}
-    setFov(fov0 && fov0 in FOVS ? fov0 : (coarse ? 'wide' : 'normal'), false);       // スマホは、最初から広い視野（左右 約120度）
+    layoutView();
     applyHash();
     loadResume();
     var last = performance.now(), mapTick = 0, lastSig = '', idle = 0, slowSum = 0, slowN = 0;
@@ -1357,7 +1430,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     entry: ENTRY, kitchenSpot: KSPOT,
     pickAt: function (x, y) { var h = pick({ clientX: x, clientY: y }, solid()); return h ? { n: h.object.name, p: [+h.point.x.toFixed(2), +(-h.point.z).toFixed(2), +h.point.y.toFixed(2)] } : null; },
     setFov: function (m) { setFov(m, false); }, testFov: function (deg, d, c, v0) { FOVS.test = deg; WIDE.d = d; WIDE.c = c === undefined ? 1 : c; WIDE.v0 = v0 || 0; fovMode = 'test'; layoutView(); },
-    fov: function () { return { mode: fovMode, wide: WIDE.on, n: WIDE.n, q: WIDE.q, sx: WIDE.sx, sy: WIDE.sy, d: WIDE.d, c: WIDE.c, v0: WIDE.v0, top: WIDE.top, frames: frames, vfov: camera.fov, aspect: camera.aspect }; },
+    fov: function () { return { mode: fovMode, split: !!split, wide: WIDE.on, n: WIDE.n, q: WIDE.q, sx: WIDE.sx, sy: WIDE.sy, d: WIDE.d, c: WIDE.c, v0: WIDE.v0, top: WIDE.top, frames: frames, vfov: camera.fov, aspect: camera.aspect }; },
     toScreen: function (x, y, z) { var v = new T.Vector3(x, z, -y), ok = toScreen(v, v), r = canvas.getBoundingClientRect(); return ok ? [r.left + (v.x * 0.5 + 0.5) * r.width, r.top + (-v.y * 0.5 + 0.5) * r.height] : null; },
     view: function () { return { z: PV.z, px: PV.px, py: PV.py, s: EV.s }; },
     door: function () { return PART ? { open: state.door, pos: state.doorPos, z: PART.door.position.z, shown: PART.door.visible, wall: PART.wall.visible, slide: PART.slide } : null; } };
