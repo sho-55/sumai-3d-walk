@@ -135,6 +135,38 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   .brk{display:none}
   #resetBtn,#listBtn{flex:1 1 0}
 }
+/* スマホを横向きにしたとき（高さが小さい）：3Dを広く見せる。スティックは左下、ボタンは右下に1段、配置の画面は左に図・右に操作 */
+@media (orientation:landscape) and (max-height:520px){
+  #titleBar{top:8px;left:max(8px,env(safe-area-inset-left,0px));padding:4px;gap:0}
+  #titleBar strong,#stateChip{display:none}
+  #mapPanel{top:8px;right:max(8px,env(safe-area-inset-right,0px))}
+  #mapPanel .more{display:none}
+  #help{top:62px;left:max(8px,env(safe-area-inset-left,0px));max-height:calc(100% - 72px)}
+  #status{top:8px;max-width:calc(100% - 300px)}
+  button{padding:8px 9px;font-size:14px}
+  #bar{left:auto;right:max(8px,env(safe-area-inset-right,0px));bottom:8px;transform:none;width:auto;
+    max-width:calc(100% - 158px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));justify-content:flex-end;gap:6px 10px;padding:8px}
+  #bar .grp{gap:6px}
+  #bar .grp.go .lbl{display:none}
+  #bar .grp.extra{display:none;order:-1}
+  #bar.open .grp.extra,#bar .grp.extra:has(button#measureBtn[aria-pressed="true"]){display:flex}
+  #moreBtn{display:inline-block}
+  #stick{left:max(14px,env(safe-area-inset-left,0px))}
+  #editor{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:auto minmax(0,1fr) auto;gap:6px 8px;
+    padding:8px max(8px,env(safe-area-inset-right,0px)) 8px max(8px,env(safe-area-inset-left,0px))}
+  .edHead{grid-column:2;grid-row:1}
+  .edHead strong{display:none}
+  #edStage{grid-column:1;grid-row:1 / span 3}
+  #edCtl{grid-column:2;grid-row:2;align-content:flex-start;overflow-y:auto;gap:6px}
+  #edCtl,#edCtl *{touch-action:pan-y}
+  #edCtl .selName{flex-basis:100%;min-height:20px}
+  #selBtns{flex-wrap:wrap;flex:1 1 100%}
+  #selBtns button{flex:1 1 auto}
+  #nudge .lbl{display:none}
+  .brk{display:none}
+  #resetBtn,#listBtn{flex:1 1 0}
+  #stored{grid-column:2;grid-row:3}
+}
 @media (prefers-reduced-motion: reduce){#view{transition:none}}
 </style>
 
@@ -158,6 +190,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     <h2>仕切りと引き戸</h2>
     <p>仕切りを「あり」にすると、旧和室とLDKの間に壁と引き戸が建つ。引き戸は「引き戸を開ける」か、戸を直接押すと開け閉めできる。閉めている間は通れない。</p>
     <h2>そのほか</h2>
+    <p>「視野」は、左右に見える広さ（90度・120度・150度）。人の目は120度くらい。広くするほど物は小さく見え、端のほうは少し曲がって見える。スマホでは「その他」の中にあり、最初は120度になっている。スマホを横向きにすると、広いまま大きく見える。</p>
     <p>見取り図を押すと、その場所へ移動する。「寸法を測る」は、測りたい2か所を順に押す。実測は部屋の幅・奥行き・天井高・食卓・テレビ台だけで、ほかは写真からの推定。</p>
   </div>
 
@@ -188,6 +221,13 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
       <span class="lbl">家具</span>
       <button id="furnOn" aria-pressed="true">あり</button>
       <button id="furnOff" aria-pressed="false">なし</button>
+    </div>
+    <div class="grp extra" role="group" aria-label="見える広さ（左右の視野）">
+      <span class="lbl">視野</span>
+      <button data-fov="normal" aria-pressed="false">ふつう</button>
+      <button data-fov="w90" aria-pressed="false" aria-label="左右90度">90°</button>
+      <button data-fov="wide" aria-pressed="false" aria-label="左右120度">120°</button>
+      <button data-fov="max" aria-pressed="false" aria-label="左右150度">150°</button>
     </div>
     <div class="grp main">
       <button id="doorBtn" hidden>引き戸を開ける</button>
@@ -286,6 +326,94 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   var scene = new T.Scene();
   scene.background = new T.Color('#dce7f0');
   var camera = new T.PerspectiveCamera(62, 1, 0.05, 700);
+  /* 視野（左右に見える広さ）。「ふつう」はこれまでどおりの遠近法。「広い」「もっと広い」は、まわり5方向を一度描いてから
+     パニーニ図法（広い室内を見せるのに使われる描き方。縦の線はまっすぐのまま、左右を広く入れる）で1枚にまとめる */
+  var needFrames = 4, frames = 0;
+  function kick(n) { needFrames = Math.max(needFrames, n || 2); }            // 「描き直しが要る」の合図。止まっている間は描かない（電池の節約）
+  ['pointerdown', 'pointerup', 'pointermove', 'keydown', 'keyup', 'wheel'].forEach(function (t) { window.addEventListener(t, function () { kick(2); }, { passive: true, capture: true }); });
+  var FOVS = { normal: 0, w90: 90, wide: 120, max: 150 }, WIDE = { on: false, d: 1, c: 1, v0: 0, sx: 1, sy: 1, half: 0, yaw: 0, n: 0, q: 1, top: 1 }, fovMode = 'normal';
+  // d＝左右のつぶし具合（0でふつうの遠近法、1でパニーニ図法）、c＝上下のつぶし具合（0でなし、1で形がのびない）、v0＝目の高さの線を画面のどこに置くか
+  var cubeRT = null, cubeCam = null, postScene = new T.Scene(), postCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  var postMat = new T.ShaderMaterial({
+    uniforms: { env: { value: null }, scl: { value: new T.Vector2(1, 1) }, d: { value: 1 }, c: { value: 1 }, v0: { value: 0 }, pitch: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: [
+      'uniform samplerCube env; uniform vec2 scl; uniform float d; uniform float c; uniform float v0; uniform float pitch; varying vec2 vUv;',
+      'void main() {',
+      '  vec2 P = (vUv * 2.0 - 1.0 - vec2(0.0, v0)) * scl;',
+      '  float k = P.x * P.x / ((d + 1.0) * (d + 1.0));',
+      '  float co = (-k * d + sqrt(k * k * d * d - (k + 1.0) * (k * d * d - 1.0))) / (k + 1.0);',     // 左右の角度の cos
+      '  float S = (d + co) / (d + 1.0);',
+      '  float m = P.y * S;',
+      '  float ty = c > 0.001 ? 0.5 * (exp(c * m) - exp(-c * m)) / c : m;',                                 // 上下の角度の tan
+      '  vec3 v = vec3(P.x * S, ty, -co);',
+      '  float cp = cos(pitch), sp = sin(pitch);',
+      '  vec3 r = vec3(v.x, v.y * cp - v.z * sp, v.y * sp + v.z * cp);',
+      '  gl_FragColor = linearToOutputTexel(vec4(textureCube(env, r).rgb, 1.0));',
+      '}'].join('\n'),
+    depthTest: false, depthWrite: false
+  });
+  postScene.add(new T.Mesh(new T.PlaneGeometry(2, 2), postMat));
+  function setupWide(wpx) {
+    var half = FOVS[fovMode] * RAD / 2;
+    WIDE.on = half > 0;
+    if (!WIDE.on) return;
+    WIDE.half = half; WIDE.sx = (WIDE.d + 1) * Math.sin(half) / (WIDE.d + Math.cos(half)); WIDE.sy = WIDE.sx / camera.aspect;
+    if (fovMode !== 'test') WIDE.v0 = camera.aspect < 1 ? 0.18 : 0.08;          // 天井より床と家具を多めに入れる（縦持ちは多め）
+    postMat.uniforms.scl.value.set(WIDE.sx, WIDE.sy); postMat.uniforms.d.value = WIDE.d; postMat.uniforms.c.value = WIDE.c; postMat.uniforms.v0.value = WIDE.v0;
+    var ym = (1 + Math.abs(WIDE.v0)) * WIDE.sy;
+    WIDE.top = Math.atan(WIDE.c > 0.001 ? Math.sinh(WIDE.c * ym) / WIDE.c : ym);  // いちばん上下に見える角度
+    var n = Math.min(2048, Math.max(384, Math.ceil(1.3 * WIDE.q * wpx / WIDE.sx / 128) * 128));      // 画面のまんなかで、にじまない細かさ
+    if (n !== WIDE.n) {
+      if (cubeRT) cubeRT.dispose();
+      cubeRT = new T.WebGLCubeRenderTarget(n, { colorSpace: T.SRGBColorSpace, generateMipmaps: true, minFilter: T.LinearMipmapLinearFilter });
+      cubeCam = new T.CubeCamera(0.05, 700, cubeRT);
+      cubeCam.coordinateSystem = renderer.coordinateSystem; cubeCam.updateCoordinateSystem();     // 向きを決めるのは、回す前に済ませる
+      postMat.uniforms.env.value = cubeRT.texture; WIDE.n = n;
+    }
+  }
+  function panini(X, Y, out) {                                                // 画面上の位置 → 目から見た向き（右・上・手前がプラス）
+    var d = WIDE.d, k = X * X / ((d + 1) * (d + 1)), co = (-k * d + Math.sqrt(k * k * d * d - (k + 1) * (k * d * d - 1))) / (k + 1), S = (d + co) / (d + 1);
+    var m = Y * S, c = WIDE.c;
+    return out.set(X * S, c > 0.001 ? Math.sinh(c * m) / c : m, -co);
+  }
+  var _v = new T.Vector3(), _q = new T.Vector3();
+  function rayAt(nx, ny) {                                                    // 画面の位置（-1〜1）から、その先へ伸びる線を作る
+    if (!WIDE.on) { ndc.set(nx, ny); ray.setFromCamera(ndc, camera); return; }
+    panini(nx * WIDE.sx, (ny - WIDE.v0) * WIDE.sy, _v);
+    var cp = Math.cos(state.p), sp = Math.sin(state.p), y = _v.y * cp - _v.z * sp, z = _v.y * sp + _v.z * cp;
+    var ca = Math.cos(WIDE.yaw), sa = Math.sin(WIDE.yaw);
+    _q.set(_v.x * ca + z * sa, y, -_v.x * sa + z * ca).normalize();
+    ray.set(camera.position, _q);
+  }
+  function toScreen(pt, out) {                                                // 部屋の中の点 → 画面の位置（-1〜1）。見えない向きなら false
+    if (!WIDE.on) { out.copy(pt).project(camera); return out.z < 1 && Math.abs(out.x) < 1.05 && Math.abs(out.y) < 1.05; }
+    _v.copy(pt).sub(camera.position);
+    var ca = Math.cos(WIDE.yaw), sa = Math.sin(WIDE.yaw), x = _v.x * ca - _v.z * sa, z1 = _v.x * sa + _v.z * ca;
+    var cp = Math.cos(state.p), sp = Math.sin(state.p), y = _v.y * cp + z1 * sp, z = -_v.y * sp + z1 * cp;
+    var hr = Math.hypot(x, z); if (hr < 1e-6) return false;
+    var co = -z / hr, k = WIDE.d + co; if (k < 0.08) return false;
+    var ty = y / hr, m = WIDE.c > 0.001 ? Math.asinh(WIDE.c * ty) / WIDE.c : ty;
+    out.set((WIDE.d + 1) * (x / hr) / k / WIDE.sx, (WIDE.d + 1) * m / k / WIDE.sy + WIDE.v0, 0);
+    return Math.abs(out.x) < 1.05 && Math.abs(out.y) < 1.05;
+  }
+  function renderView() {
+    if (!WIDE.on) { renderer.render(scene, camera); return; }
+    WIDE.yaw = state.h - PI / 2;
+    cubeCam.position.copy(camera.position); cubeCam.rotation.set(0, WIDE.yaw, 0); cubeCam.updateMatrixWorld(true);
+    postMat.uniforms.pitch.value = state.p;
+    // うしろ向きの1面は、真上・真下を大きく見ているときしか要らない
+    var back = Math.abs(state.p) + WIDE.top > 2.25, order = back ? [0, 1, 2, 3, 5, 4] : [0, 1, 2, 3, 5];
+    var tex0 = cubeRT.texture, gm = tex0.generateMipmaps;
+    tex0.generateMipmaps = false;
+    for (var i = 0; i < order.length; i++) {
+      if (i === order.length - 1) tex0.generateMipmaps = gm;
+      renderer.setRenderTarget(cubeRT, order[i]);
+      renderer.render(scene, cubeCam.children[order[i]]);
+    }
+    renderer.setRenderTarget(null);
+    renderer.render(postScene, postCam);
+  }
 
   var PI = Math.PI, RAD = PI / 180;
   var coarse = window.matchMedia('(pointer: coarse)').matches;
@@ -471,10 +599,11 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
       }
       $('doorBtn').hidden = !layout.partition;
       $('doorBtn').textContent = state.door ? '引き戸を閉める' : '引き戸を開ける';
-      rebuildObstacles(); updateChip(); drawEditor();
+      rebuildObstacles(); updateChip(); drawEditor(); kick(4);
     }).catch(function (e) { clearTimeout(slow); setStatus('部屋の絵を読み込めませんでした。通信を確かめてもう一度試してください'); });
   }
   function placeFurniture() {
+    kick(3);
     NAMES.forEach(function (n) {
       var it = layout.items[n], g = F[n].group;
       g.visible = state.furn && shown(n);
@@ -579,8 +708,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   var ray = new T.Raycaster(), ndc = new T.Vector2(), pointers = new Map();
   function pick(e, list) {
     var r = canvas.getBoundingClientRect();
-    ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
-    ray.setFromCamera(ndc, camera);
+    rayAt((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
     var hits = ray.intersectObjects(list, false);
     return hits.length ? hits[0] : null;
   }
@@ -608,7 +736,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     var dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY; p.moved += Math.abs(dx) + Math.abs(dy);
     if (p.moved > 6) {
-      var k = camera.fov * RAD / canvas.clientHeight;
+      var k = WIDE.on ? 2 * WIDE.half / canvas.clientWidth * 0.8 : camera.fov * RAD / canvas.clientHeight;
       state.h += dx * k; state.p = Math.max(-1.2, Math.min(1.2, state.p + dy * k)); moved = true;
     }
   });
@@ -668,8 +796,8 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   var mid = new T.Vector3();
   function placeLabel() {
     if (!mLabel) return;
-    mid.copy(mPts[0]).add(mPts[1]).multiplyScalar(0.5).project(camera);
-    var show = mid.z < 1 && Math.abs(mid.x) < 1.05 && Math.abs(mid.y) < 1.05;
+    mid.copy(mPts[0]).add(mPts[1]).multiplyScalar(0.5);
+    var show = toScreen(mid, mid);
     mLabel.hidden = !show;
     if (show) { mLabel.style.left = (mid.x * 0.5 + 0.5) * app.clientWidth + 'px'; mLabel.style.top = (-mid.y * 0.5 + 0.5) * app.clientHeight + 'px'; }
   }
@@ -937,7 +1065,7 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     editor.hidden = false; $('sheet').hidden = true;
     sizeEditor(); renderEditorControls(); drawEditor();
   }
-  function closeEditor() { editor.hidden = true; ed.sel = null; ed.drag = null; ed.pan = null; ed.pinch = null; pts.clear(); unstick(); applyLook(); }
+  function closeEditor() { editor.hidden = true; ed.sel = null; ed.drag = null; ed.pan = null; ed.pinch = null; pts.clear(); unstick(); applyLook(); kick(6); }
   $('editBtn').addEventListener('click', openEditor);
   $('edClose').addEventListener('click', closeEditor);
   new ResizeObserver(function () { if (!editor.hidden) { sizeEditor(); drawEditor(); } }).observe($('edStage'));
@@ -1056,6 +1184,16 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
   $('furnOn').addEventListener('click', function () { setFurniture(true); });
   $('furnOff').addEventListener('click', function () { setFurniture(false); });
   $('doorBtn').addEventListener('click', toggleDoor);
+  var fovBtns = document.querySelectorAll('[data-fov]');
+  function setFov(m, save) {
+    if (!(m in FOVS)) m = 'normal';
+    if (m !== 'test') { WIDE.d = 1; WIDE.c = 1; }
+    fovMode = m;
+    Array.prototype.forEach.call(fovBtns, function (b) { b.setAttribute('aria-pressed', String(b.dataset.fov === m)); });
+    if (save) { try { localStorage.setItem('sumai_fov', m); } catch (err) {} }
+    layoutView();
+  }
+  Array.prototype.forEach.call(fovBtns, function (b) { b.addEventListener('click', function () { setFov(b.dataset.fov, true); }); });
   $('moreBtn').addEventListener('click', function () {
     var on = !$('bar').classList.contains('open');
     $('bar').classList.toggle('open', on);
@@ -1073,7 +1211,9 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     camera.aspect = w / h;
     camera.fov = camera.aspect >= 1.2 ? 62 : Math.min(92, 2 * Math.atan(Math.tan(36 * RAD) / camera.aspect) / RAD);
     camera.updateProjectionMatrix();
-    stick.style.bottom = ($('bar').offsetHeight + 30) + 'px';
+    setupWide(w * renderer.getPixelRatio()); kick(4);
+    var flat = window.matchMedia('(orientation:landscape) and (max-height:520px)').matches;      // スマホの横向き：スティックは左下、ボタンは右下
+    stick.style.bottom = flat ? '14px' : ($('bar').offsetHeight + 30) + 'px';
     $('hint').style.bottom = ($('bar').offsetHeight + 26) + 'px';
   }
   new ResizeObserver(layoutView).observe(app);
@@ -1104,15 +1244,29 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     placeFurniture(); updateChip(); renderLists();
     $('loading').hidden = true;
     if (coarse) stick.hidden = false; else { $('hint').hidden = false; }
-    layoutView();
+    var fov0 = null; try { fov0 = localStorage.getItem('sumai_fov'); } catch (err) {}
+    setFov(fov0 && fov0 in FOVS ? fov0 : (coarse ? 'wide' : 'normal'), false);       // スマホは、最初から広い視野（左右 約120度）
     applyHash();
     loadResume();
-    var last = performance.now(), mapTick = 0;
+    var last = performance.now(), mapTick = 0, lastSig = '', idle = 0, slowSum = 0, slowN = 0;
     (function frame(now) {
       requestAnimationFrame(frame);
       var dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
       if (!editor.hidden) return;                                            // 配置を変える画面の間は3Dを止めておく
-      update(dt); placeCamera(); renderer.render(scene, camera); placeLabel();
+      update(dt); placeCamera();
+      var sig = [state.x, state.y, state.h, state.p, state.eye, state.doorPos, lookSeq, mGroup.children.length, marker.visible, marker.position.x, marker.position.z, fovMode, state.furn].join(',');
+      if (sig !== lastSig) { lastSig = sig; kick(2); }
+      if (needFrames > 0 || ++idle > 45) {
+        if (needFrames > 1 && WIDE.on) {                                       // 動いている間のコマの間隔を測る
+          slowSum += dt; slowN++;
+          if (slowN >= 24) {
+            if (slowSum / slowN > 0.036 && WIDE.q > 0.5) { WIDE.q = Math.max(0.5, WIDE.q * 0.75); setupWide(app.clientWidth * renderer.getPixelRatio()); }   // 毎秒28コマを下回ったら粗くする
+            slowSum = 0; slowN = 0;
+          }
+        } else { slowSum = 0; slowN = 0; }
+        needFrames--; idle = 0; renderView(); frames++;
+      }
+      placeLabel();
       if (moved && !$('hint').hidden) $('hint').style.opacity = '0';
       if ((mapTick += dt) > 0.05) { mapTick = 0; drawMap(); }
     })(last);
@@ -1200,7 +1354,12 @@ button.strong[aria-pressed="true"]{color:var(--accent-ink)}
     getLayout: function () { return layout; }, setLayout: setLayout, preset: function (i) { return setLayout(fromPreset(SC.presets[i])); },
     openEditor: openEditor, closeEditor: closeEditor, pack: pack, lookKey: lookKey, storeMode: function () { return db ? 'db' : 'local'; }, toggleDoor: toggleDoor,
     planXY: function (x, y) { var r = plan.getBoundingClientRect(); return [r.left + EV.ox + (x - EV.x0) * EV.s, r.top + EV.oy + (EV.y1 - y) * EV.s]; },
-    entry: ENTRY, kitchenSpot: KSPOT, view: function () { return { z: PV.z, px: PV.px, py: PV.py, s: EV.s }; },
+    entry: ENTRY, kitchenSpot: KSPOT,
+    pickAt: function (x, y) { var h = pick({ clientX: x, clientY: y }, solid()); return h ? { n: h.object.name, p: [+h.point.x.toFixed(2), +(-h.point.z).toFixed(2), +h.point.y.toFixed(2)] } : null; },
+    setFov: function (m) { setFov(m, false); }, testFov: function (deg, d, c, v0) { FOVS.test = deg; WIDE.d = d; WIDE.c = c === undefined ? 1 : c; WIDE.v0 = v0 || 0; fovMode = 'test'; layoutView(); },
+    fov: function () { return { mode: fovMode, wide: WIDE.on, n: WIDE.n, q: WIDE.q, sx: WIDE.sx, sy: WIDE.sy, d: WIDE.d, c: WIDE.c, v0: WIDE.v0, top: WIDE.top, frames: frames, vfov: camera.fov, aspect: camera.aspect }; },
+    toScreen: function (x, y, z) { var v = new T.Vector3(x, z, -y), ok = toScreen(v, v), r = canvas.getBoundingClientRect(); return ok ? [r.left + (v.x * 0.5 + 0.5) * r.width, r.top + (-v.y * 0.5 + 0.5) * r.height] : null; },
+    view: function () { return { z: PV.z, px: PV.px, py: PV.py, s: EV.s }; },
     door: function () { return PART ? { open: state.door, pos: state.doorPos, z: PART.door.position.z, shown: PART.door.visible, wall: PART.wall.visible, slide: PART.slide } : null; } };
   }
 })();
